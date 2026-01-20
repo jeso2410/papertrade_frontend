@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Portfolio.css';
+import TradeModal from './TradeModal';
 
 const Portfolio = ({ userId, ws_id, onBack }) => {
   const [positions, setPositions] = useState([]);
@@ -7,11 +8,16 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Trade Modal State
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
+  const [tradeType, setTradeType] = useState('BUY');
+  
   const ws = React.useRef(null);
-
-  // Initial Fetch
-  useEffect(() => {
-    const fetchPositions = async () => {
+  
+  const fetchPositions = async () => {
+      // Don't set loading on re-fetch to avoid flickering
+      // setLoading(true); 
       try {
         const response = await fetch(`https://backend-1-mpd2.onrender.com/trade/positions/${userId}`);
         const data = await response.json();
@@ -33,6 +39,8 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
       }
     };
 
+  // Initial Fetch
+  useEffect(() => {
     fetchPositions();
   }, [userId]);
 
@@ -61,7 +69,6 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
                           const newLtp = data.ltp;
                           // Recalculate values
                           // P&L = (Current Price - Avg Price) * Quantity
-                          // Note: Ensure types are numbers
                           const qty = parseFloat(pos.quantity);
                           const avg = parseFloat(pos.avg_price);
                           const currentVal = newLtp * qty;
@@ -73,7 +80,7 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
                               ltp: newLtp,
                               current_value: currentVal,
                               pnl: newPnl,
-                              pnl_percent: pnlPercent.toFixed(2) // Keep as string or number? API had it as string/number usually
+                              pnl_percent: pnlPercent.toFixed(2)
                           };
                       }
                       return pos;
@@ -97,6 +104,18 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
           if (ws.current) ws.current.close();
       };
   }, [ws_id]);
+
+  const openTradeModal = (pos, type) => {
+      setSelectedTokenForTrade({
+          token: pos.token,
+          name: pos.symbol,
+          symbol: pos.symbol,
+          ltp: pos.ltp,
+          change_diff: pos.pnl // Use P&L as proxy for color, or just 0
+      });
+      setTradeType(type);
+      setIsTradeModalOpen(true);
+  };
 
   return (
     <div className="portfolio-container">
@@ -133,6 +152,7 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
                             <th>LTP</th>
                             <th>Current Value</th>
                             <th>P&L</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -149,6 +169,22 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
                                     <td className={isProfit ? 'text-green' : 'text-red'}>
                                         {isProfit ? '+' : ''}{pnl.toFixed(2)} ({pos.pnl_percent}%)
                                     </td>
+                                    <td>
+                                        <div className="action-buttons">
+                                            <button 
+                                                className="mini-btn btn-buy"
+                                                onClick={() => openTradeModal(pos, 'BUY')}
+                                            >
+                                                B
+                                            </button>
+                                            <button 
+                                                className="mini-btn btn-sell"
+                                                onClick={() => openTradeModal(pos, 'SELL')}
+                                            >
+                                                S
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             );
                         })}
@@ -156,6 +192,18 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
                 </table>
             </div>
         )}
+        
+        <TradeModal 
+            isOpen={isTradeModalOpen}
+            onClose={() => setIsTradeModalOpen(false)}
+            tokenData={selectedTokenForTrade || {}}
+            type={tradeType}
+            userId={userId}
+            onOrderSuccess={() => {
+                // Refresh positions after successful trade
+                fetchPositions();
+            }}
+        />
       </div>
     </div>
   );
