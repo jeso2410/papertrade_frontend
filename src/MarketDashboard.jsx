@@ -108,6 +108,7 @@ const MarketDashboard = ({ ws_id, userId }) => {
     ws.current.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("WS Data Packet:", data); // DEBUG: Check if symbol name is here
         
         // Only process if it's one of our watched tokens
         // We check watchedTokens state, but inside useEffect we need to be careful with closures.
@@ -115,9 +116,38 @@ const MarketDashboard = ({ ws_id, userId }) => {
         // we can just filter during render or check if the token exists in our map.
         // To be safe and reactive, we update state.
         
+        // Dynamically update token name if we have better info from WS
+        // and currently we only have a fallback "Token ..." name.
+        setWatchedTokens(prev => {
+            const currentName = prev[data.token];
+            const hasPlaceholder = !currentName || currentName.startsWith("Token ");
+            
+            // Prefer 'name' (e.g. BANKNIFTY) over 'symbol' (e.g. Nifty Bank) as per user preference
+            // But if it's an Option/Future, we might want to construct it if fields exist? 
+            // The WS data shown by user didn't have expiry/strike for Index, 
+            // but for Options they might. 
+            // Let's try to use formatTokenName if possible, else fallback to data.name or data.symbol
+            
+            if (hasPlaceholder && (data.name || data.symbol)) {
+                let newName = data.name || data.symbol;
+                
+                // If we have enough info to format it nicely (like options), try that
+                // Example WS packet for option might have expiry/strike if getting full depth?
+                // If not, we stick to data.name/symbol.
+                const formatted = formatTokenName(data); 
+                if (formatted && formatted !== "undefined" && formatted !== "null") {
+                    newName = formatted;
+                }
+
+                return {
+                    ...prev,
+                    [data.token]: newName
+                };
+            }
+            return prev;
+        });
+        
         setMarketData(prevData => {
-            // Check if this token is currently watched (we do this check here or just store everything)
-            // Storing everything is fine, we filter at render time.
             return {
                 ...prevData,
                 [data.token]: data
