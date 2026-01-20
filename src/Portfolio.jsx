@@ -1,0 +1,164 @@
+import React, { useState, useEffect } from 'react';
+import './Portfolio.css';
+
+const Portfolio = ({ userId, ws_id, onBack }) => {
+  const [positions, setPositions] = useState([]);
+  const [totalPnl, setTotalPnl] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  const ws = React.useRef(null);
+
+  // Initial Fetch
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const response = await fetch(`https://backend-1-mpd2.onrender.com/trade/positions/${userId}`);
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.positions) {
+            setPositions(data.positions);
+            setTotalPnl(data.total_pnl || 0);
+        } else if (Array.isArray(data)) {
+            setPositions(data);
+        } else {
+             setPositions([]);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch positions:", err);
+        setError("Failed to load portfolio.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPositions();
+  }, [userId]);
+
+  // WebSocket Connection for Live Updates
+  useEffect(() => {
+      if (!ws_id) return;
+
+      const socketUrl = `wss://backend-1-mpd2.onrender.com/ws/market/${ws_id}`;
+      ws.current = new WebSocket(socketUrl);
+
+      ws.current.onopen = () => {
+          console.log("Portfolio WS Connected");
+      };
+
+      ws.current.onmessage = (event) => {
+          try {
+              const data = JSON.parse(event.data);
+              // Expected data: { token, ltp, ... }
+
+              setPositions(prevPositions => {
+                  let updated = false;
+                  // Map through positions to find match
+                  const newPositions = prevPositions.map(pos => {
+                      if (String(pos.token) === String(data.token)) {
+                          updated = true;
+                          const newLtp = data.ltp;
+                          // Recalculate values
+                          // P&L = (Current Price - Avg Price) * Quantity
+                          // Note: Ensure types are numbers
+                          const qty = parseFloat(pos.quantity);
+                          const avg = parseFloat(pos.avg_price);
+                          const currentVal = newLtp * qty;
+                          const newPnl = (newLtp - avg) * qty;
+                          const pnlPercent = avg !== 0 ? ((newLtp - avg) / avg) * 100 : 0;
+
+                          return {
+                              ...pos,
+                              ltp: newLtp,
+                              current_value: currentVal,
+                              pnl: newPnl,
+                              pnl_percent: pnlPercent.toFixed(2) // Keep as string or number? API had it as string/number usually
+                          };
+                      }
+                      return pos;
+                  });
+
+                  if (updated) {
+                      // Recalculate Total P&L
+                      const newTotal = newPositions.reduce((sum, p) => sum + (parseFloat(p.pnl) || 0), 0);
+                      setTotalPnl(newTotal);
+                      return newPositions;
+                  }
+                  return prevPositions;
+              });
+
+          } catch (err) {
+              console.error("WS Parse Error:", err);
+          }
+      };
+
+      return () => {
+          if (ws.current) ws.current.close();
+      };
+  }, [ws_id]);
+
+  return (
+    <div className="portfolio-container">
+      <div className="portfolio-content">
+        <div className="portfolio-header">
+            <button onClick={onBack} className="back-btn">← Back to Dashboard</button>
+            <h2>My Portfolio</h2>
+        </div>
+
+        {/* Total P&L Summary Card */}
+        {!loading && !error && (
+            <div className="pnl-summary-card">
+                <h3>Total P&L</h3>
+                <div className={`pnl-value ${totalPnl >= 0 ? 'text-green' : 'text-red'}`}>
+                    {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+                </div>
+            </div>
+        )}
+
+        {loading ? (
+            <div className="loading-state">Loading Positions...</div>
+        ) : error ? (
+            <div className="error-state">{error}</div>
+        ) : positions.length === 0 ? (
+            <div className="empty-state">No open positions found.</div>
+        ) : (
+            <div className="positions-table-wrapper">
+                <table className="positions-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Qty</th>
+                            <th>Avg Price</th>
+                            <th>LTP</th>
+                            <th>Current Value</th>
+                            <th>P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {positions.map((pos, index) => {
+                            const pnl = pos.pnl || 0;
+                            const isProfit = pnl >= 0;
+                            return (
+                                <tr key={index}>
+                                    <td className="font-bold">{pos.symbol || "Unknown"}</td>
+                                    <td>{pos.quantity}</td>
+                                    <td>₹{pos.avg_price.toFixed(2)}</td>
+                                    <td>₹{pos.ltp.toFixed(2)}</td>
+                                    <td>₹{pos.current_value.toFixed(2)}</td>
+                                    <td className={isProfit ? 'text-green' : 'text-red'}>
+                                        {isProfit ? '+' : ''}{pnl.toFixed(2)} ({pos.pnl_percent}%)
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Portfolio;

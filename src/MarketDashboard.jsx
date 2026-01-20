@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Signup.css'; // Use the same premium styling
+import TradeModal from './TradeModal';
 
-const MarketDashboard = ({ ws_id, userId }) => {
+const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
   const [marketData, setMarketData] = useState({});
   const [status, setStatus] = useState('Connecting...');
   
+  // Trade Modal State
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
+  const [tradeType, setTradeType] = useState('BUY');
+
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -176,6 +182,23 @@ const MarketDashboard = ({ ws_id, userId }) => {
     };
   }, [ws_id]);
 
+  const openTradeModal = (token, type) => {
+      // Construct token data from marketData or watchedTokens
+      // We need name/symbol which might be in watchedTokens if not in marketData yet
+      const currentData = marketData[token] || {};
+      const name = watchedTokens[token] || "Unknown";
+      
+      setSelectedTokenForTrade({
+          token: token,
+          name: name,
+          symbol: currentData.symbol || name, // Fallback
+          ltp: currentData.ltp || 0,
+          change_diff: currentData.change_diff || 0
+      });
+      setTradeType(type);
+      setIsTradeModalOpen(true);
+  };
+
   // Search Function
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -267,6 +290,20 @@ const MarketDashboard = ({ ws_id, userId }) => {
                 <div className={`message ${status === 'Online' ? 'success' : 'error'}`} style={{ margin: 0, padding: '5px 15px' }}>
                     {status}
                 </div>
+                <button 
+                    onClick={onNavigateToPortfolio}
+                    className="signup-button"
+                    style={{ 
+                        width: 'auto', 
+                        marginTop: 0, 
+                        marginRight: '10px',
+                        background: 'rgba(96, 165, 250, 0.2)', 
+                        border: '1px solid rgba(96, 165, 250, 0.5)', 
+                        color: '#93c5fd' 
+                    }}
+                >
+                    Portfolio
+                </button>
                 <button 
                     onClick={handleLogout}
                     className="signup-button"
@@ -397,10 +434,62 @@ const MarketDashboard = ({ ws_id, userId }) => {
                         }}>
                             {isPositive ? '+' : ''}{typeof change === 'number' ? change.toFixed(2) : '0.00'} ({typeof percent === 'number' ? percent.toFixed(2) : '0.00'}%)
                         </div>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '15px', width: '100%' }}>
+                            <button 
+                                onClick={() => openTradeModal(token, 'BUY')}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'rgba(34, 197, 94, 0.2)',
+                                    color: '#4ade80',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => e.target.style.background = 'rgba(34, 197, 94, 0.3)'}
+                                onMouseOut={(e) => e.target.style.background = 'rgba(34, 197, 94, 0.2)'}
+                            >
+                                BUY
+                            </button>
+                            <button 
+                                onClick={() => openTradeModal(token, 'SELL')}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'rgba(239, 68, 68, 0.2)',
+                                    color: '#f87171',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.3)'}
+                                onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
+                            >
+                                SELL
+                            </button>
+                        </div>
                     </div>
                 );
             })}
         </div>
+        
+        <TradeModal 
+            isOpen={isTradeModalOpen}
+            onClose={() => setIsTradeModalOpen(false)}
+            tokenData={selectedTokenForTrade || {}}
+            type={tradeType}
+            userId={userId}
+            onOrderSuccess={() => {
+                // Optional: Refresh portfolio if we had one
+                console.log("Order Placed Successfully");
+            }}
+        />
       </div>
     </div>
   );
