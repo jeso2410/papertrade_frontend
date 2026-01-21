@@ -101,7 +101,7 @@ const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOr
                 className={`trade-btn ${type === 'BUY' ? 'btn-buy' : 'btn-sell'}`}
                 disabled={loading}
             >
-                {loading ? 'Processing...' : `Confirm ${type}`}
+                {loading ? 'Processing...' : `Confirm ${type} @ ${parseFloat(currentLtp || 0).toFixed(2)}`}
             </button>
         </form>
       </div>
