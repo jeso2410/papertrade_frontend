@@ -3,47 +3,17 @@ import { API_BASE_URL, WS_BASE_URL } from './apiConfig';
 import './Portfolio.css';
 import TradeModal from './TradeModal';
 
-const Portfolio = ({ userId, ws_id, onBack, isEmbedded }) => {
+const Portfolio = ({ userId, ws_id, onBack, isEmbedded, refreshTrigger }) => {
   const [positions, setPositions] = useState([]);
   const [totalPnl, setTotalPnl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Trade Modal State
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
-  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
-  const [tradeType, setTradeType] = useState('BUY');
-  
-  const ws = React.useRef(null);
-  
-  const fetchPositions = async () => {
-      // Don't set loading on re-fetch to avoid flickering
-      // setLoading(true); 
-      try {
-        const response = await fetch(`${API_BASE_URL}/trade/positions/${userId}`);
-        const data = await response.json();
-        
-        if (data.status === 'success' && data.positions) {
-            setPositions(data.positions);
-            setTotalPnl(data.total_pnl || 0);
-        } else if (Array.isArray(data)) {
-            setPositions(data);
-        } else {
-             setPositions([]);
-        }
+// ... existing state ...
 
-      } catch (err) {
-        console.error("Failed to fetch positions:", err);
-        setError("Failed to load portfolio.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-  // Initial Fetch
+  // Initial Fetch & Refresh Trigger
   useEffect(() => {
     fetchPositions();
-  }, [userId]);
+  }, [userId, refreshTrigger]);
 
   // WebSocket Connection for Live Updates
   useEffect(() => {
@@ -70,8 +40,8 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded }) => {
                           const newLtp = data.ltp;
                           // Recalculate values
                           // P&L = (Current Price - Avg Price) * Quantity
-                          const qty = parseFloat(pos.quantity);
-                          const avg = parseFloat(pos.avg_price);
+                          const qty = parseFloat(pos.quantity || 0);
+                          const avg = parseFloat(pos.avg_price || 0);
                           const currentVal = newLtp * qty;
                           const newPnl = (newLtp - avg) * qty;
                           const pnlPercent = avg !== 0 ? ((newLtp - avg) / avg) * 100 : 0;
@@ -130,8 +100,8 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded }) => {
         {!loading && !error && (
             <div className="pnl-summary-card">
                 <h3>Total P&L</h3>
-                <div className={`pnl-value ${totalPnl >= 0 ? 'text-green' : 'text-red'}`}>
-                    {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+                <div className={`pnl-value ${(parseFloat(totalPnl || 0)) >= 0 ? 'text-green' : 'text-red'}`}>
+                    {(parseFloat(totalPnl || 0)) >= 0 ? '+' : ''}{parseFloat(totalPnl || 0).toFixed(2)}
                 </div>
             </div>
         )}
@@ -164,11 +134,11 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded }) => {
                                 <tr key={index}>
                                     <td className="font-bold">{pos.symbol || "Unknown"}</td>
                                     <td>{pos.quantity}</td>
-                                    <td>₹{pos.avg_price.toFixed(2)}</td>
-                                    <td>₹{pos.ltp.toFixed(2)}</td>
-                                    <td>₹{pos.current_value.toFixed(2)}</td>
+                                    <td>₹{parseFloat(pos.avg_price || 0).toFixed(2)}</td>
+                                    <td>₹{parseFloat(pos.ltp || 0).toFixed(2)}</td>
+                                    <td>₹{parseFloat(pos.current_value || 0).toFixed(2)}</td>
                                     <td className={isProfit ? 'text-green' : 'text-red'}>
-                                        {isProfit ? '+' : ''}{pnl.toFixed(2)} ({pos.pnl_percent}%)
+                                        {isProfit ? '+' : ''}{parseFloat(pnl || 0).toFixed(2)} ({pos.pnl_percent}%)
                                     </td>
                                     <td>
                                         <div className="action-buttons">
