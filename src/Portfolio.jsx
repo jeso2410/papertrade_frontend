@@ -8,7 +8,41 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded, refreshTrigger }) => {
   const [totalPnl, setTotalPnl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-// ... existing state ...
+  
+  // Trade Modal State
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
+  const [tradeType, setTradeType] = useState('BUY');
+  // Trade Modal State
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
+  const [tradeType, setTradeType] = useState('BUY');
+
+  const ws = React.useRef(null);
+  
+  const fetchPositions = async () => {
+      // Don't set loading on re-fetch to avoid flickering
+      // setLoading(true); 
+      try {
+        const response = await fetch(`${API_BASE_URL}/trade/positions/${userId}`);
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.positions) {
+            setPositions(data.positions);
+            setTotalPnl(data.total_pnl || 0);
+        } else if (Array.isArray(data)) {
+            setPositions(data);
+        } else {
+             setPositions([]);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch positions:", err);
+        setError("Failed to load portfolio.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   // Initial Fetch & Refresh Trigger
   useEffect(() => {
