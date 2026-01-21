@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL, WS_BASE_URL } from './apiConfig';
 import './Portfolio.css';
 import TradeModal from './TradeModal';
 
-const Portfolio = ({ userId, ws_id, onBack }) => {
+const Portfolio = ({ userId, ws_id, onBack, isEmbedded }) => {
   const [positions, setPositions] = useState([]);
   const [totalPnl, setTotalPnl] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
       // Don't set loading on re-fetch to avoid flickering
       // setLoading(true); 
       try {
-        const response = await fetch(`https://backend-1-mpd2.onrender.com/trade/positions/${userId}`);
+        const response = await fetch(`${API_BASE_URL}/trade/positions/${userId}`);
         const data = await response.json();
         
         if (data.status === 'success' && data.positions) {
@@ -48,7 +49,7 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
   useEffect(() => {
       if (!ws_id) return;
 
-      const socketUrl = `wss://backend-1-mpd2.onrender.com/ws/market/${ws_id}`;
+      const socketUrl = `${WS_BASE_URL}/ws/market/${ws_id}`;
       ws.current = new WebSocket(socketUrl);
 
       ws.current.onopen = () => {
@@ -121,7 +122,7 @@ const Portfolio = ({ userId, ws_id, onBack }) => {
     <div className="portfolio-container">
       <div className="portfolio-content">
         <div className="portfolio-header">
-            <button onClick={onBack} className="back-btn">← Back to Dashboard</button>
+            {!isEmbedded && <button onClick={onBack} className="back-btn">← Back to Dashboard</button>}
             <h2>My Portfolio</h2>
         </div>
 

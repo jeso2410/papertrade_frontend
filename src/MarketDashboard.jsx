@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL, WS_BASE_URL } from './apiConfig';
 import './Signup.css'; // Use the same premium styling
 import TradeModal from './TradeModal';
 
-const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
+import Portfolio from './Portfolio';
+import TradeHistory from './TradeHistory';
+
+const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onNavigateToPortfolio, onNavigateToHistory, onLogout }) => {
   const [marketData, setMarketData] = useState({});
   const [status, setStatus] = useState('Connecting...');
   
@@ -54,7 +58,7 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
     const fetchWatchlist = async () => {
         if (!userId) return;
         try {
-            const response = await fetch(`https://backend-1-mpd2.onrender.com/watchlist/${userId}`);
+            const response = await fetch(`${API_BASE_URL}/watchlist/${userId}`);
             const data = await response.json();
             
             const newTokens = {};
@@ -102,7 +106,7 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
   useEffect(() => {
     if (!ws_id) return;
 
-    const socketUrl = `wss://backend-1-mpd2.onrender.com/ws/market/${ws_id}`;
+    const socketUrl = `${WS_BASE_URL}/ws/market/${ws_id}`;
     
     ws.current = new WebSocket(socketUrl);
 
@@ -206,7 +210,7 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
 
     setIsSearching(true);
     try {
-        const response = await fetch(`https://backend-1-mpd2.onrender.com/search-symbol?q=${searchQuery}`);
+        const response = await fetch(`${API_BASE_URL}/search-symbol?q=${searchQuery}`);
         const data = await response.json();
         setSearchResults(data);
     } catch (error) {
@@ -234,7 +238,7 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
       try {
           // User requested POST method with query parameters
           // Strictly matching user's Postman screenshot: user_id, ws_id, token ONLY
-          const response = await fetch(`https://backend-1-mpd2.onrender.com/watchlist/add?user_id=${userId}&ws_id=${ws_id}&token=${tokenData.token}`, {
+          const response = await fetch(`${API_BASE_URL}/watchlist/add?user_id=${userId}&ws_id=${ws_id}&token=${tokenData.token}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -266,8 +270,9 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
           return newTokens;
       });
 
+      // Call API to remove from watchlist
       try {
-          await fetch(`https://backend-1-mpd2.onrender.com/watchlist/remove?user_id=${userId}&ws_id=${ws_id}&token=${token}`, {
+          await fetch(`${API_BASE_URL}/watchlist/remove?user_id=${userId}&ws_id=${ws_id}&token=${token}`, {
               method: 'POST'
           });
       } catch (error) {
@@ -282,202 +287,184 @@ const MarketDashboard = ({ ws_id, userId, onNavigateToPortfolio }) => {
   };
 
   return (
-    <div className="signup-container" style={{ padding: '20px', alignItems: 'flex-start', overflowY: 'auto' }}>
-      <div className="signup-card" style={{ maxWidth: '800px', width: '100%', margin: '40px auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
-            <h2 style={{ margin: 0 }}>Market Dashboard</h2>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <div className={`message ${status === 'Online' ? 'success' : 'error'}`} style={{ margin: 0, padding: '5px 15px' }}>
-                    {status}
-                </div>
+      <div className="dashboard-container" style={{ display: 'flex', height: '100vh', overflow: 'hidden', padding: 0 }}>
+      
+      {/* SIDEBAR - WATCHLIST */}
+      <div className="sidebar" style={{ 
+          width: '350px', 
+          background: 'rgba(15, 23, 42, 0.95)', 
+          borderRight: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '16px'
+      }}>
+          {/* Header & Status */}
+          <div style={{ marginBottom: '20px' }}>
+             <h2 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', color: '#fff' }}>Market Watch</h2>
+             <div className={`status-indicator ${status.toLowerCase()}`}>
+                 <span className="status-dot"></span>
+                 {status}
+             </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="search-container" style={{ marginBottom: '16px' }}>
+             <div className="search-input-wrapper">
+                 <span className="search-icon">🔍</span>
+                 <input 
+                     type="text" 
+                     placeholder="Search & Add (e.g. RELIANCE)" 
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     onKeyDown={(e) => {
+                         if (e.key === 'Enter') handleSearch();
+                     }}
+                 />
+                 {isSearching && <div className="spinner-small"></div>}
+             </div>
+             {/* Search Results Dropdown */}
+             {searchResults.length > 0 && (
+                 <div className="search-results" style={{ position: 'absolute', zIndex: 100, width: '90%' }}>
+                     {searchResults.map((result) => (
+                         <div 
+                             key={result.token} 
+                             className="search-result-item"
+                             onClick={() => addSymbol(result)}
+                         >
+                             <span>{result.name || result.symbol}</span>
+                             <span className="exchange-tag">{result.exchange}</span>
+                         </div>
+                     ))}
+                 </div>
+             )}
+          </div>
+
+          {/* Watchlist Items (Scrollable) */}
+          <div className="watchlist-items" style={{ flex: 1, overflowY: 'auto' }}>
+            {Object.keys(watchedTokens).map((token) => {
+              const name = watchedTokens[token];
+              const data = marketData[token] || {};
+              const price = data.ltp ? parseFloat(data.ltp).toFixed(2) : "---";
+              const change = data.percent_change ? parseFloat(data.percent_change).toFixed(2) : "0.00";
+              const isPositive = parseFloat(change) >= 0;
+
+              return (
+              <div key={token} className="token-card" style={{ padding: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between',  alignItems: 'center' }}>
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
+                    <div className="token-symbol" style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{name}</div>
+                    <div className="token-price" style={{ fontSize: '1rem', fontWeight: 'bold' }}>₹{price}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                     <div className={`token-change ${isPositive ? 'positive' : 'negative'}`} style={{ fontSize: '0.85rem' }}>
+                        {isPositive ? '▲' : '▼'} {Math.abs(change)}%
+                     </div>
+                     <div style={{ marginTop: '5px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                        <button 
+                             className="trade-btn buy-btn" 
+                             style={{ padding: '4px 8px', fontSize: '10px', minWidth: '24px' }}
+                             onClick={() => openTradeModal(token, name, 'BUY')}
+                             title="Buy"
+                        >B</button>
+                        <button 
+                             className="trade-btn sell-btn" 
+                             style={{ padding: '4px 8px', fontSize: '10px', minWidth: '24px' }}
+                             onClick={() => openTradeModal(token, name, 'SELL')}
+                             title="Sell"
+                        >S</button>
+                        {!["99926000", "99926009"].includes(token) && (
+                            <button 
+                                className="delete-btn"
+                                onClick={(e) => { e.stopPropagation(); removeSymbol(token); }}
+                                style={{ padding: '4px 8px', fontSize: '10px', marginLeft: '2px', minWidth: '24px' }}
+                                title="Remove"
+                            >✕</button>
+                        )}
+                     </div>
+                  </div>
+              </div>
+              );
+            })}
+          </div>
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="main-content" style={{ flex: 1, overflowY: 'auto', background: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+          
+          {/* Top Header */}
+          <header className="dashboard-header" style={{ padding: '16px', background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="header-left">
+                <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
+                    {activeView === 'dashboard' ? 'Market Overview' : 
+                     activeView === 'portfolio' ? 'My Portfolio' : 'Trade History'}
+                </h1>
+            </div>
+            <div className="dashboard-header-right">
                 <button 
+                    className={`portfolio-btn ${activeView === 'dashboard' ? 'active-nav' : ''}`}
+                    onClick={onNavigateToDashboard}
+                    style={{ background: activeView === 'dashboard' ? 'rgba(96, 165, 250, 0.4)' : '' }}
+                >
+                    Dashboard
+                </button>
+                <button 
+                    className={`portfolio-btn ${activeView === 'portfolio' ? 'active-nav' : ''}`}
                     onClick={onNavigateToPortfolio}
-                    className="signup-button"
-                    style={{ 
-                        width: 'auto', 
-                        marginTop: 0, 
-                        marginRight: '10px',
-                        background: 'rgba(96, 165, 250, 0.2)', 
-                        border: '1px solid rgba(96, 165, 250, 0.5)', 
-                        color: '#93c5fd' 
-                    }}
+                    style={{ background: activeView === 'portfolio' ? 'rgba(96, 165, 250, 0.4)' : '' }}
                 >
                     Portfolio
                 </button>
                 <button 
-                    onClick={handleLogout}
-                    className="signup-button"
+                    onClick={onNavigateToHistory}
+                    className={`portfolio-btn ${activeView === 'history' ? 'active-nav' : ''}`}
                     style={{ 
-                        width: 'auto', 
-                        marginTop: 0, 
-                        background: 'rgba(239, 68, 68, 0.2)', 
-                        border: '1px solid rgba(239, 68, 68, 0.5)', 
-                        color: '#fca5a5' 
+                        marginLeft: '10px',
+                        background: activeView === 'history' ? 'rgba(96, 165, 250, 0.4)' : ''
                     }}
+                >
+                    History
+                </button>
+                <button 
+                    onClick={onLogout}
+                    className="logout-btn"
+                    style={{ marginLeft: '20px' }}
                 >
                     Logout
                 </button>
             </div>
-        </div>
+          </header>
 
-        {/* Search Bar */}
-        <div style={{ marginBottom: '30px', position: 'relative' }}>
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                    type="text" 
-                    className="signup-input" 
-                    placeholder="Search Symbol (e.g. RELIANCE)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <button type="submit" className="signup-button" style={{ width: 'auto', marginTop: 0 }} disabled={isSearching}>
-                    {isSearching ? '...' : 'Search'}
-                </button>
-            </form>
+          {/* Dynamic Content Body */}
+          <div className="content-body" style={{ padding: '24px', flex: 1 }}>
+              {activeView === 'dashboard' && (
+                  <div className="welcome-placeholder" style={{ textAlign: 'center', marginTop: '50px', color: '#94a3b8' }}>
+                      <h2 style={{ marginBottom: '10px' }}>Welcome back!</h2>
+                      <p>Select a stock from the watchlist to trade or view your portfolio.</p>
+                      
+                      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '40px' }}>
+                          <div className="stat-card" style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', width: '250px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <h3 style={{color: '#cbd5e1'}}>NIFTY 50</h3>
+                              <p style={{ fontSize: '1.8rem', color: '#fff', fontWeight: 'bold' }}>
+                                  {marketData['99926000']?.last_price || 'Loading...'}
+                              </p>
+                          </div>
+                          <div className="stat-card" style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', width: '250px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <h3 style={{color: '#cbd5e1'}}>BANKNIFTY</h3>
+                              <p style={{ fontSize: '1.8rem', color: '#fff', fontWeight: 'bold' }}>
+                                  {marketData['99926009']?.last_price || 'Loading...'}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              )}
 
-            {/* Search Results Dropdown */}
-            {searchResults.length > 0 && (
-                <div style={{ 
-                    position: 'absolute', 
-                    top: '100%', 
-                    left: 0, 
-                    right: 0, 
-                    background: '#1e293b', 
-                    border: '1px solid #334155',
-                    borderRadius: '12px',
-                    marginTop: '5px',
-                    maxHeight: '300px',
-                    overflowY: 'auto',
-                    zIndex: 1000,
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                }}>
-                    {searchResults.map((result) => (
-                        <div 
-                            key={result.token} 
-                            onClick={() => addSymbol(result)}
-                            style={{ 
-                                padding: '12px 16px', 
-                                borderBottom: '1px solid #334155',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                color: '#cbd5e1'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                            <span style={{ fontWeight: 'bold' }}>{formatTokenName(result)}</span>
-                            <span style={{ 
-                                fontSize: '0.8em', 
-                                background: 'rgba(255, 255, 255, 0.1)', 
-                                padding: '2px 6px', 
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255, 255, 255, 0.2)' 
-                            }}>{result.exchange}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+              {activeView === 'portfolio' && (
+                  <Portfolio userId={userId} ws_id={ws_id} isEmbedded={true} />
+              )}
 
-        {/* Watchlist Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            {/* Render cards for watched tokens */}
-            {Object.keys(watchedTokens).map(token => {
-                const data = marketData[token];
-                const name = watchedTokens[token];
-                const price = data ? data.ltp : '---';
-                const change = data ? data.change_diff : 0;
-                const percent = data ? data.percent_change : 0;
-                const isPositive = change >= 0;
-
-                return (
-                    <div key={token} className="input-group" style={{ 
-                        background: 'rgba(255, 255, 255, 0.05)', 
-                        padding: '20px', 
-                        borderRadius: '16px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        position: 'relative'
-                    }}>
-                        {/* Delete Button - Hide for default tokens */}
-                        {token !== "99926000" && token !== "99926009" && (
-                            <button 
-                                onClick={() => removeSymbol(token)}
-                                style={{
-                                    position: 'absolute',
-                                    top: '10px',
-                                    right: '10px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#ef4444',
-                                    fontSize: '1.2em',
-                                    cursor: 'pointer',
-                                    padding: '5px'
-                                }}
-                                title="Remove Symbol"
-                            >
-                                ×
-                            </button>
-                        )}
-
-                        <h3 style={{ margin: '0 0 10px 0', color: '#cbd5e1' }}>{name}</h3>
-                        <div style={{ fontSize: '2.5em', fontWeight: 'bold', marginBottom: '10px' }}>
-                            {typeof price === 'number' ? price.toFixed(2) : price}
-                        </div>
-                        <div style={{ 
-                            color: isPositive ? '#4ade80' : '#f87171',
-                            fontSize: '1.2em',
-                            fontWeight: '500' 
-                        }}>
-                            {isPositive ? '+' : ''}{typeof change === 'number' ? change.toFixed(2) : '0.00'} ({typeof percent === 'number' ? percent.toFixed(2) : '0.00'}%)
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '15px', width: '100%' }}>
-                            <button 
-                                onClick={() => openTradeModal(token, 'BUY')}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'rgba(34, 197, 94, 0.2)',
-                                    color: '#4ade80',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseOver={(e) => e.target.style.background = 'rgba(34, 197, 94, 0.3)'}
-                                onMouseOut={(e) => e.target.style.background = 'rgba(34, 197, 94, 0.2)'}
-                            >
-                                BUY
-                            </button>
-                            <button 
-                                onClick={() => openTradeModal(token, 'SELL')}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'rgba(239, 68, 68, 0.2)',
-                                    color: '#f87171',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseOver={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.3)'}
-                                onMouseOut={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.2)'}
-                            >
-                                SELL
-                            </button>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
+              {activeView === 'history' && (
+                  <TradeHistory userId={userId} isEmbedded={true} />
+              )}
+          </div>
         
         <TradeModal 
             isOpen={isTradeModalOpen}

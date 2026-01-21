@@ -5,25 +5,43 @@ import MarketDashboard from './MarketDashboard';
 import './App.css';
 
 import Portfolio from './Portfolio';
+import TradeHistory from './TradeHistory';
 
 function App() {
-  const [isLogin, setIsLogin] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'portfolio'
-  const [authData, setAuthData] = useState(() => {
-    // Check for existing session on load
-    const savedSession = localStorage.getItem('user_session');
-    return savedSession ? JSON.parse(savedSession) : null;
-  });
+  const [isLogin, setIsLogin] = useState(false); // Restore state
+  const [authData, setAuthData] = useState(null);
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'portfolio', 'history'
+
+  // Load session from local storage on mount
+  useEffect(() => {
+    const storedSession = localStorage.getItem('user_session');
+    if (storedSession) {
+      setAuthData(JSON.parse(storedSession));
+    }
+  }, []);
+
+  const handleLoginSuccess = (data) => {
+    setAuthData(data);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user_session');
+    localStorage.removeItem('token');
+    setAuthData(null);
+    setCurrentView('dashboard');
+  };
 
   // If user is logged in
   if (authData) {
-      if (currentView === 'portfolio') {
-          return <Portfolio userId={authData.user_id} ws_id={authData.ws_id} onBack={() => setCurrentView('dashboard')} />;
-      }
+      // Always render MarketDashboard, pass currentView to control main content
       return <MarketDashboard 
                 ws_id={authData.ws_id} 
                 userId={authData.user_id} 
+                activeView={currentView}
+                onNavigateToDashboard={() => setCurrentView('dashboard')}
                 onNavigateToPortfolio={() => setCurrentView('portfolio')}
+                onNavigateToHistory={() => setCurrentView('history')}
+                onLogout={handleLogout} 
              />;
   }
 
@@ -32,7 +50,7 @@ function App() {
       {isLogin ? (
         <Login 
           onSwitch={() => setIsLogin(false)} 
-          onLoginSuccess={(data) => setAuthData(data)}
+          onLoginSuccess={handleLoginSuccess}
         />
       ) : (
         <Signup onSwitch={() => setIsLogin(true)} />

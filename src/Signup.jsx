@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from './apiConfig';
 import './Signup.css';
 
 const Signup = ({ onSwitch }) => {
@@ -36,7 +37,7 @@ const Signup = ({ onSwitch }) => {
     setIsSuccess(false);
 
     try {
-      const response = await fetch('https://backend-1-mpd2.onrender.com/signup', {
+      const response = await fetch(`${API_BASE_URL}/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

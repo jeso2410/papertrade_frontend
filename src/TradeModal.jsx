@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from './apiConfig';
 import './TradeModal.css';
 
 const TradeModal = ({ isOpen, onClose, tokenData, type, userId, onOrderSuccess }) => {
@@ -26,7 +27,7 @@ const TradeModal = ({ isOpen, onClose, tokenData, type, userId, onOrderSuccess }
 
       console.log("Placing Order:", payload);
 
-      const response = await fetch('https://backend-1-mpd2.onrender.com/trade/place_order', {
+      const response = await fetch(`${API_BASE_URL}/trade/place_order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
