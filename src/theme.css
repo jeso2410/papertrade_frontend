@@ -1,0 +1,68 @@
+:root {
+  /* Core Colors */
+  --bg-dark: #0f172a;       /* Slate 900 */
+  --bg-card: #1e293b;       /* Slate 800 */
+  --bg-sidebar: #0b0f19;    /* Deep Navy */
+  
+  /* Accents */
+  --primary: #6366f1;       /* Indigo 500 */
+  --primary-glow: rgba(99, 102, 241, 0.4);
+  --success: #10b981;       /* Emerald 500 */
+  --success-glow: rgba(16, 185, 129, 0.2);
+  --danger: #ef4444;        /* Red 500 */
+  --danger-glow: rgba(239, 68, 68, 0.2);
+  
+  /* Text */
+  --text-primary: #f8fafc;  /* Slate 50 */
+  --text-secondary: #94a3b8; /* Slate 400 */
+  
+  /* UI Elements */
+  --border-light: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --backdrop-blur: blur(12px);
+  
+  /* Spacing */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden; /* Prevent body scroll since we have inner scroll */
+  margin: 0;
+}
+
+/* Global Utility Classes */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--backdrop-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Scrollbar Polish */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

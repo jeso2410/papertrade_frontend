@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL, WS_BASE_URL } from './apiConfig';
-import './Signup.css'; // Use the same premium styling
+import './theme.css'; // Global Theme Variables
+import './MarketDashboard.css'; // Dashboard Specific Styles
 import TradeModal from './TradeModal';
+import ErrorBoundary from './ErrorBoundary';
 
 import Portfolio from './Portfolio';
 import TradeHistory from './TradeHistory';
@@ -14,7 +16,8 @@ const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onN
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
   const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
   const [tradeType, setTradeType] = useState('BUY');
-
+  const [refreshPortfolioCount, setRefreshPortfolioCount] = useState(0);
+  
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -186,16 +189,16 @@ const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onN
     };
   }, [ws_id]);
 
-  const openTradeModal = (token, type) => {
+  const openTradeModal = (token, name, type) => {
       // Construct token data from marketData or watchedTokens
-      // We need name/symbol which might be in watchedTokens if not in marketData yet
       const currentData = marketData[token] || {};
-      const name = watchedTokens[token] || "Unknown";
+      // Use passed name, or fallback to watchedTokens, or "Unknown"
+      const resolvedName = name || watchedTokens[token] || "Unknown";
       
       setSelectedTokenForTrade({
           token: token,
-          name: name,
-          symbol: currentData.symbol || name, // Fallback
+          name: resolvedName,
+          symbol: currentData.symbol || resolvedName, // Fallback
           ltp: currentData.ltp || 0,
           change_diff: currentData.change_diff || 0
       });
@@ -388,45 +391,42 @@ const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onN
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <div className="main-content" style={{ flex: 1, overflowY: 'auto', background: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+      <div className="main-content">
           
           {/* Top Header */}
-          <header className="dashboard-header" style={{ padding: '16px', background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <header className="dashboard-header">
             <div className="header-left">
-                <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
+                <h1 className="header-title">
                     {activeView === 'dashboard' ? 'Market Overview' : 
                      activeView === 'portfolio' ? 'My Portfolio' : 'Trade History'}
                 </h1>
             </div>
-            <div className="dashboard-header-right">
-                <button 
-                    className={`portfolio-btn ${activeView === 'dashboard' ? 'active-nav' : ''}`}
-                    onClick={onNavigateToDashboard}
-                    style={{ background: activeView === 'dashboard' ? 'rgba(96, 165, 250, 0.4)' : '' }}
-                >
-                    Dashboard
-                </button>
-                <button 
-                    className={`portfolio-btn ${activeView === 'portfolio' ? 'active-nav' : ''}`}
-                    onClick={onNavigateToPortfolio}
-                    style={{ background: activeView === 'portfolio' ? 'rgba(96, 165, 250, 0.4)' : '' }}
-                >
-                    Portfolio
-                </button>
-                <button 
-                    onClick={onNavigateToHistory}
-                    className={`portfolio-btn ${activeView === 'history' ? 'active-nav' : ''}`}
-                    style={{ 
-                        marginLeft: '10px',
-                        background: activeView === 'history' ? 'rgba(96, 165, 250, 0.4)' : ''
-                    }}
-                >
-                    History
-                </button>
+            
+            <div className="dashboard-header-right" style={{ display: 'flex', alignItems: 'center' }}>
+                <div className="nav-tabs">
+                    <button 
+                        className={`nav-tab ${activeView === 'dashboard' ? 'active' : ''}`}
+                        onClick={onNavigateToDashboard}
+                    >
+                        Dashboard
+                    </button>
+                    <button 
+                        className={`nav-tab ${activeView === 'portfolio' ? 'active' : ''}`}
+                        onClick={onNavigateToPortfolio}
+                    >
+                        Portfolio
+                    </button>
+                    <button 
+                        className={`nav-tab ${activeView === 'history' ? 'active' : ''}`}
+                        onClick={onNavigateToHistory}
+                    >
+                        History
+                    </button>
+                </div>
+                
                 <button 
                     onClick={onLogout}
                     className="logout-btn"
-                    style={{ marginLeft: '20px' }}
                 >
                     Logout
                 </button>
@@ -434,50 +434,70 @@ const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onN
           </header>
 
           {/* Dynamic Content Body */}
-          <div className="content-body" style={{ padding: '24px', flex: 1 }}>
+          <div className="content-body">
               {activeView === 'dashboard' && (
-                  <div className="welcome-placeholder" style={{ textAlign: 'center', marginTop: '50px', color: '#94a3b8' }}>
-                      <h2 style={{ marginBottom: '10px' }}>Welcome back!</h2>
-                      <p>Select a stock from the watchlist to trade or view your portfolio.</p>
+                  <div className="welcome-section" style={{ textAlign: 'center', marginTop: '40px' }}>
+                      <h2 className="text-gradient" style={{ fontSize: '2.5rem', marginBottom: '10px' }}>
+                          Welcome back!
+                      </h2>
+                      <p style={{ color: 'var(--text-secondary)', marginBottom: '40px' }}>
+                          Market is open. What will you trade today?
+                      </p>
                       
-                      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '40px' }}>
-                          <div className="stat-card" style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', width: '250px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                              <h3 style={{color: '#cbd5e1'}}>NIFTY 50</h3>
-                              <p style={{ fontSize: '1.8rem', color: '#fff', fontWeight: 'bold' }}>
-                                  {marketData['99926000']?.last_price || 'Loading...'}
-                              </p>
+                      <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <div className="market-stat-card">
+                              <div className="stat-label">NIFTY 50</div>
+                              <div className="stat-value">
+                                  {marketData['99926000']?.last_price ? parseFloat(marketData['99926000'].last_price).toFixed(2) : <span style={{fontSize: '1rem', opacity: 0.5}}>Loading...</span>}
+                              </div>
+                              <div style={{ color: (marketData['99926000']?.change_percent || 0) >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px', fontWeight: 600 }}>
+                                  {marketData['99926000']?.change_percent ? `${marketData['99926000'].change_percent}%` : '--'}
+                              </div>
                           </div>
-                          <div className="stat-card" style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', width: '250px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                              <h3 style={{color: '#cbd5e1'}}>BANKNIFTY</h3>
-                              <p style={{ fontSize: '1.8rem', color: '#fff', fontWeight: 'bold' }}>
-                                  {marketData['99926009']?.last_price || 'Loading...'}
-                              </p>
+                          
+                          <div className="market-stat-card">
+                              <div className="stat-label">BANKNIFTY</div>
+                              <div className="stat-value">
+                                  {marketData['99926009']?.last_price ? parseFloat(marketData['99926009'].last_price).toFixed(2) : <span style={{fontSize: '1rem', opacity: 0.5}}>Loading...</span>}
+                              </div>
+                              <div style={{ color: (marketData['99926009']?.change_percent || 0) >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px', fontWeight: 600 }}>
+                                  {marketData['99926009']?.change_percent ? `${marketData['99926009'].change_percent}%` : '--'}
+                              </div>
                           </div>
                       </div>
                   </div>
               )}
 
               {activeView === 'portfolio' && (
-                  <Portfolio userId={userId} ws_id={ws_id} isEmbedded={true} />
+                  <ErrorBoundary>
+                    <Portfolio 
+                        userId={userId} 
+                        // ws_id={ws_id} // No longer needed for direct connection
+                        isEmbedded={true} 
+                        refreshTrigger={refreshPortfolioCount}
+                        marketData={marketData}
+                    />
+                  </ErrorBoundary>
               )}
 
               {activeView === 'history' && (
                   <TradeHistory userId={userId} isEmbedded={true} />
               )}
           </div>
-        
-        <TradeModal 
+      </div>  
+      
+      <TradeModal 
             isOpen={isTradeModalOpen}
             onClose={() => setIsTradeModalOpen(false)}
             tokenData={selectedTokenForTrade || {}}
             type={tradeType}
             userId={userId}
             onOrderSuccess={() => {
-                // Optional: Refresh portfolio if we had one
-                console.log("Order Placed Successfully");
+                console.log("Order Placed Successfully. Navigating to Portfolio...");
+                setRefreshPortfolioCount(prev => prev + 1);
+                onNavigateToPortfolio();
             }}
-        />
-      </div>
+      />
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { API_BASE_URL, WS_BASE_URL } from './apiConfig';
 import './Portfolio.css';
 import TradeModal from './TradeModal';
 
-const Portfolio = ({ userId, ws_id, onBack, isEmbedded, refreshTrigger }) => {
+const Portfolio = ({ userId, onBack, isEmbedded, refreshTrigger, marketData }) => {
   const [positions, setPositions] = useState([]);
   const [totalPnl, setTotalPnl] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -13,11 +13,6 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded, refreshTrigger }) => {
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
   const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
   const [tradeType, setTradeType] = useState('BUY');
-  // Trade Modal State
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
-  const [selectedTokenForTrade, setSelectedTokenForTrade] = useState(null);
-  const [tradeType, setTradeType] = useState('BUY');
-
   const ws = React.useRef(null);
   
   const fetchPositions = async () => {
@@ -49,66 +44,52 @@ const Portfolio = ({ userId, ws_id, onBack, isEmbedded, refreshTrigger }) => {
     fetchPositions();
   }, [userId, refreshTrigger]);
 
-  // WebSocket Connection for Live Updates
+  // Listen to marketData updates from parent
   useEffect(() => {
-      if (!ws_id) return;
+    if (!marketData || Object.keys(marketData).length === 0) return;
+    
+    setPositions(prevPositions => {
+        let updated = false;
+        const newPositions = prevPositions.map(pos => {
+            const token = String(pos.token);
+            // Check if we have an update for this token
+            if (marketData[token]) {
+                const data = marketData[token];
+                // Only update if price changed to avoid unnecessary re-renders? 
+                // React handles diffing, but we want to update P&L
+                const newLtp = parseFloat(data.last_price || data.ltp || 0);
+                
+                if (newLtp > 0 && newLtp !== pos.ltp) {
+                    updated = true;
+                    // Recalculate values
+                    const qty = parseFloat(pos.quantity || 0);
+                    const avg = parseFloat(pos.avg_price || 0);
+                    const currentVal = newLtp * qty;
+                    const newPnl = (newLtp - avg) * qty;
+                    const pnlPercent = avg !== 0 ? ((newLtp - avg) / avg) * 100 : 0;
 
-      const socketUrl = `${WS_BASE_URL}/ws/market/${ws_id}`;
-      ws.current = new WebSocket(socketUrl);
+                    return {
+                        ...pos,
+                        ltp: newLtp,
+                        current_value: currentVal,
+                        pnl: newPnl,
+                        pnl_percent: pnlPercent.toFixed(2)
+                    };
+                }
+            }
+            return pos;
+        });
 
-      ws.current.onopen = () => {
-          console.log("Portfolio WS Connected");
-      };
+        if (updated) {
+            // Recalculate Total P&L
+            const newTotal = newPositions.reduce((sum, p) => sum + (parseFloat(p.pnl) || 0), 0);
+            setTotalPnl(newTotal);
+            return newPositions;
+        }
+        return prevPositions;
+    });
 
-      ws.current.onmessage = (event) => {
-          try {
-              const data = JSON.parse(event.data);
-              // Expected data: { token, ltp, ... }
-
-              setPositions(prevPositions => {
-                  let updated = false;
-                  // Map through positions to find match
-                  const newPositions = prevPositions.map(pos => {
-                      if (String(pos.token) === String(data.token)) {
-                          updated = true;
-                          const newLtp = data.ltp;
-                          // Recalculate values
-                          // P&L = (Current Price - Avg Price) * Quantity
-                          const qty = parseFloat(pos.quantity || 0);
-                          const avg = parseFloat(pos.avg_price || 0);
-                          const currentVal = newLtp * qty;
-                          const newPnl = (newLtp - avg) * qty;
-                          const pnlPercent = avg !== 0 ? ((newLtp - avg) / avg) * 100 : 0;
-
-                          return {
-                              ...pos,
-                              ltp: newLtp,
-                              current_value: currentVal,
-                              pnl: newPnl,
-                              pnl_percent: pnlPercent.toFixed(2)
-                          };
-                      }
-                      return pos;
-                  });
-
-                  if (updated) {
-                      // Recalculate Total P&L
-                      const newTotal = newPositions.reduce((sum, p) => sum + (parseFloat(p.pnl) || 0), 0);
-                      setTotalPnl(newTotal);
-                      return newPositions;
-                  }
-                  return prevPositions;
-              });
-
-          } catch (err) {
-              console.error("WS Parse Error:", err);
-          }
-      };
-
-      return () => {
-          if (ws.current) ws.current.close();
-      };
-  }, [ws_id]);
+  }, [marketData]);
 
   const openTradeModal = (pos, type) => {
       setSelectedTokenForTrade({
