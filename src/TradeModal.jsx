@@ -76,8 +76,8 @@ const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOr
         
         <div className="price-display">
             LTP: 
-            <span className={tokenData.change_diff >= 0 ? "text-green" : "text-red"}>
-                ₹{tokenData.ltp || "0.00"}
+            <span className={parseFloat(currentChange) >= 0 ? "text-green" : "text-red"}>
+                ₹{parseFloat(currentLtp).toFixed(2)}
             </span>
         </div>
 
@@ -95,7 +95,7 @@ const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOr
             </div>
 
             <div className="estimated-total">
-                Est. Total: ₹{(quantity * (tokenData.ltp || 0)).toFixed(2)}
+                Est. Total: ₹{(quantity * parseFloat(currentLtp || 0)).toFixed(2)}
             </div>
 
             {error && <div className="error-msg">{error}</div>}
