@@ -9,7 +9,12 @@ const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOr
   const [success, setSuccess] = useState('');
 
   // Derive live price if available, else static
-  const liveTokenData = marketData && tokenData ? marketData[tokenData.token] : null;
+  const tokenKey = tokenData?.token ? String(tokenData.token) : null;
+  const liveTokenData = marketData && tokenKey ? marketData[tokenKey] : null;
+  
+  // DEBUG: Log to see if we satisfy the condition
+  // console.log(`TradeModal Token: ${tokenKey}, Live Data:`, liveTokenData);
+
   const currentLtp = liveTokenData?.last_price || liveTokenData?.ltp || tokenData.ltp || 0;
   const currentChange = liveTokenData?.change_percent || liveTokenData?.percent_change || tokenData.change_diff || 0;
 
