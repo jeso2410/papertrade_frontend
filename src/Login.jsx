@@ -49,6 +49,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
         setIsSuccess(true);
         setMessage('✅ Login Successful!');
         console.log('User Data:', data);
+        console.log('Logged in User ID:', data.user_id);
         
         if (data.access_token) {
           localStorage.setItem('token', data.access_token);

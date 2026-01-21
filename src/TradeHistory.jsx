@@ -13,8 +13,8 @@ const TradeHistory = ({ userId, onBack, isEmbedded }) => {
         const response = await fetch(`${API_BASE_URL}/trade/history/${userId}`);
         const data = await response.json();
 
-        if (data.status === 'success' && Array.isArray(data.data)) {
-            setTrades(data.data);
+        if (data.status === 'success' && Array.isArray(data.trades)) {
+            setTrades(data.trades);
         } else if (Array.isArray(data)) {
             setTrades(data);
         } else {
@@ -65,6 +65,9 @@ const TradeHistory = ({ userId, onBack, isEmbedded }) => {
                     <tbody>
                         {trades.map((trade, index) => {
                             const netPnl = trade.net_pnl || 0;
+                            const grossPnl = trade.pnl || 0;
+                            // If brokerage is not explicitly provided, calculate it: Gross - Net
+                            const brokerage = trade.brokerage !== undefined ? trade.brokerage : (grossPnl - netPnl);
                             const isProfit = netPnl >= 0;
                             const date = new Date(trade.created_at).toLocaleString();
                             
@@ -83,7 +86,7 @@ const TradeHistory = ({ userId, onBack, isEmbedded }) => {
                                     <td className={trade.pnl >= 0 ? 'text-green' : 'text-red'}>
                                         {trade.pnl?.toFixed(2)}
                                     </td>
-                                    <td className="text-red">-₹{trade.brokerage}</td>
+                                    <td className="text-red">-₹{typeof brokerage === 'number' ? brokerage.toFixed(2) : '0.00'}</td>
                                     <td className={`font-bold ${isProfit ? 'text-green' : 'text-red'}`}>
                                         {isProfit ? '+' : ''}{netPnl.toFixed(2)}
                                     </td>
