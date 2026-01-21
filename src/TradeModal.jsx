@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { API_BASE_URL } from './apiConfig';
 import './TradeModal.css';
 
-const TradeModal = ({ isOpen, onClose, tokenData, type, userId, onOrderSuccess }) => {
+const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOrderSuccess }) => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Derive live price if available, else static
+  const liveTokenData = marketData && tokenData ? marketData[tokenData.token] : null;
+  const currentLtp = liveTokenData?.last_price || liveTokenData?.ltp || tokenData.ltp || 0;
+  const currentChange = liveTokenData?.change_percent || liveTokenData?.percent_change || tokenData.change_diff || 0;
 
   if (!isOpen) return null;
 

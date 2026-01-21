@@ -490,6 +490,7 @@ const MarketDashboard = ({ ws_id, userId, activeView, onNavigateToDashboard, onN
             isOpen={isTradeModalOpen}
             onClose={() => setIsTradeModalOpen(false)}
             tokenData={selectedTokenForTrade || {}}
+            marketData={marketData} // Pass live market data
             type={tradeType}
             userId={userId}
             onOrderSuccess={() => {
