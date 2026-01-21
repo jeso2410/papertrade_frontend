@@ -75,7 +75,7 @@ const TradeModal = ({ isOpen, onClose, tokenData, marketData, type, userId, onOr
         </div>
         
         <div className="price-display">
-            Current Price: 
+            LTP: 
             <span className={tokenData.change_diff >= 0 ? "text-green" : "text-red"}>
                 ₹{tokenData.ltp || "0.00"}
             </span>
