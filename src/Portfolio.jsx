@@ -183,6 +183,7 @@ const Portfolio = ({ userId, onBack, isEmbedded, refreshTrigger, marketData }) =
             isOpen={isTradeModalOpen}
             onClose={() => setIsTradeModalOpen(false)}
             tokenData={selectedTokenForTrade || {}}
+            marketData={marketData} // Pass live market data
             type={tradeType}
             userId={userId}
             onOrderSuccess={() => {
