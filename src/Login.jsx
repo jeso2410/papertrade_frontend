@@ -38,6 +38,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Ensure cookies/headers are passed
         body: JSON.stringify({
           email: formData.email
         }),
